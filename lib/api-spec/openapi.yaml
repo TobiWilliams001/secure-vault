@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.2.0
+  description: Secure Vault API — zero-knowledge encrypted vault with JWT auth
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: vault
+    description: Encrypted vault operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register a new user
+      description: >
+        Client derives authKey = SHA256(masterPassword + ":auth:" + email) before sending.
+        The master password is never transmitted. Server stores bcrypt(authKey).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: Registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login with email and derived auth key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user info
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      tags: [auth]
+      summary: Logout (client-side token discard)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/account:
+    delete:
+      operationId: deleteAccount
+      tags: [auth]
+      summary: Delete account and all vault data
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Account deleted
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vault:
+    get:
+      operationId: getVault
+      tags: [vault]
+      summary: Fetch the user's encrypted vault blob
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Vault data (encryptedData is null if no data saved yet)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: syncVault
+      tags: [vault]
+      summary: Upload the re-encrypted vault blob
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncVaultBody"
+      responses:
+        "200":
+          description: Vault synced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultSyncResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        authKey:
+          type: string
+          description: SHA256(masterPassword + ":auth:" + email) — never the raw password
+        pbkdf2Salt:
+          type: string
+          description: Hex-encoded random salt for client-side PBKDF2 key derivation
+      required: [email, authKey, pbkdf2Salt]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        authKey:
+          type: string
+      required: [email, authKey]
+
+    AuthResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        token:
+          type: string
+      required: [userId, token]
+
+    LoginResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        token:
+          type: string
+        pbkdf2Salt:
+          type: string
+          description: Returned so client can derive the encryption key
+      required: [userId, token, pbkdf2Salt]
+
+    UserInfo:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+      required: [userId, email]
+
+    VaultResponse:
+      type: object
+      properties:
+        encryptedData:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+      required: [encryptedData, updatedAt]
+
+    SyncVaultBody:
+      type: object
+      properties:
+        encryptedData:
+          type: string
+      required: [encryptedData]
+
+    VaultSyncResponse:
+      type: object
+      properties:
+        updatedAt:
+          type: string
+      required: [updatedAt]
