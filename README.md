@@ -195,7 +195,6 @@ secure-vault/                    ← monorepo root
 │
 ├── README.md                    ← This file
 ├── POSTMORTEM.md                ← Engineering decisions log
-└── replit.md                    ← Agent/developer quick reference
 ```
 
 ---
