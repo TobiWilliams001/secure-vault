@@ -463,7 +463,6 @@ pnpm run typecheck
 
 ---
 
-## Running on Replit
 
 Both workflows start automatically:
 
@@ -476,81 +475,6 @@ The Expo URL appears in the workflow log. Scan with Expo Go on your phone, or op
 
 ---
 
-## Taking the Project Locally
-
-Replit maintains a full git repository. You can take the project to your local machine with complete commit history:
-
-```bash
-# 1. Push your Replit project to GitHub from the Replit Git panel
-#    (Version Control tab → connect to GitHub → push)
-
-# 2. Clone locally
-git clone https://github.com/yourname/secure-vault
-cd secure-vault
-
-# 3. Install
-pnpm install
-
-# 4. Set up your .env (see Environment Variables above)
-
-# 5. Push the database schema
-pnpm --filter @workspace/db run push
-
-# 6. Run everything
-pnpm --filter @workspace/api-server run dev   # terminal 1
-pnpm --filter @workspace/secure-vault run dev  # terminal 2
-```
-
-To sync changes between Replit and local:
-```bash
-# From local → Replit: push to GitHub, pull in Replit git panel
-# From Replit → local: Replit auto-commits; pull from GitHub locally
-git pull origin main
-```
-
----
-
-## Security Considerations & Known Limitations
-
-### Intentional Design Choices
-
-**No password recovery.** If you forget your master password, your vault data is permanently unrecoverable. This is the zero-knowledge guarantee. Any recovery mechanism would require the server to hold something that could decrypt the vault — breaking the security model.
-
-**pbkdf2Salt is not secret.** The PBKDF2 salt is stored server-side and returned on login. This is correct behavior — the salt's purpose is uniqueness (prevents rainbow tables), not confidentiality. An attacker with the salt still needs the master password to derive the encryption key.
-
-### Current Limitations
-
-**AES-CTR, not AES-GCM.** `crypto-js` does not implement AES-GCM (authenticated encryption). AES-CTR provides confidentiality but not integrity — a tampered ciphertext will decrypt to garbage rather than being detected and rejected. Mitigation: PBKDF2 key derivation with unique salt per user, and a fresh IV per write.
-
-**No server-side rate limiting on login.** The `/auth/login` endpoint has no brute-force protection beyond the cost of 100k PBKDF2 iterations client-side. Should be addressed before production deployment.
-
-**Single-device write model.** `PUT /vault` is a full replace. On two simultaneous device writes, the last writer wins and data from the other device is lost. A `lastKnownUpdatedAt` concurrency check would fix this.
-
-**JWT is not revocable.** Logout deletes the token from device storage but the JWT remains valid on the server until its 7-day expiry. A token revocation list (Redis set of invalid JIDs) would fix this.
-
-### Upgrade Path for Production
-
-1. Replace `crypto-js` with `react-native-quick-crypto` for AES-GCM (requires Expo dev build)
-2. Add `express-rate-limit` to `/auth/login`
-3. Add `lastKnownUpdatedAt` conflict detection to `PUT /vault`
-4. Add JWT blocklist for immediate revocation on logout/delete
-
----
-
-## Publishing
-
-### iOS (App Store via Replit)
-
-Click **Publish** in Replit — Expo Launch handles the build and App Store submission automatically.
-
-### Android (Google Play)
-
-```bash
-# Requires EAS CLI locally
-npm install -g eas-cli
-eas build --platform android
-eas submit --platform android
-```
 
 ### Self-Hosted Backend
 
