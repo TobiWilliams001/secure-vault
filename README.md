@@ -1,6 +1,6 @@
 # Secure Vault
 
-A production-grade, privacy-first mobile password manager built with **true zero-knowledge architecture**. All encryption and decryption happens exclusively on your device using a master password that never leaves it. The backend server is architecturally — not just contractually — incapable of reading your data.
+A privacy-first mobile password manager built with **true zero-knowledge architecture**. All encryption and decryption happens exclusively on your device using a master password that never leaves it. The backend server is architecturally — not just contractually — incapable of reading your data.
 
 Stores passwords, crypto seed phrases, secure notes, and card details. Syncs an encrypted vault blob across devices. Built with React Native (Expo) + TypeScript + Express + PostgreSQL.
 
